@@ -1,0 +1,1 @@
+drop table [Dashboard].dbo.HMD_Offer_Response
