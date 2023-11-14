@@ -1,0 +1,41 @@
+import os
+import pandas as pd
+import sqlalchemy
+from urllib.parse import quote_plus
+import warnings
+
+warnings.filterwarnings('ignore')
+
+# SQL Server connection parameters
+server_name = "MANORANJAN\SQLEXPRESS"
+database_name = "Dashboard"
+db_path = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server_name};DATABASE={database_name};Trusted_Connection=yes'
+table_name_base = "interactions"
+
+# Create the engine
+params = quote_plus(db_path)
+engine = sqlalchemy.create_engine(f'mssql+pyodbc:///?odbc_connect={params}', fast_executemany=True)
+
+# Folder containing CSV files
+folder_path = r'C:\Users\manor\Downloads\Python_Working\New_folder'
+
+# Iterate through CSV files in the folder
+for csv_file in os.listdir(folder_path):
+    if csv_file.endswith('.csv'):
+        # Read CSV file into a pandas DataFrame
+        df = pd.read_csv(os.path.join(folder_path, csv_file))
+
+        # Select specific columns
+        selected_columns = ['ac3_contact_status',	'ac3_flag_skey',	'activity_date',	'activity_month',	'activity_week',	'agent_sic_last_node_name',	'agent_sic1_name',	'agent_sic2_name',	'agent_sic3_name',	'agent_sic4_name',	'agent_site_group',	'ccx_12345count',	'ccx_45count',	'comm_id',	'contact_type',	'customer_id',	'direction',	'handled_contacts',	'hmd_poll_yes',	'hmd_response_no',	'hmd_response_no_adjusted',	'hmd_response_yes',	'hmd_response_yes_adjusted',	'hmd_total_responses',	'is_ac3_flag',	'login_name',	'manager_login_lvl_1',	'marketplace_name',	'parked_contacts',	'rap_repeat_comm_id',	'resolved_contacts',	'routing_reporting_vertical',	'routing_skill_amzn_hierarchy_name',	'routing_skill_cs_hierarchy1_name',	'routing_skill_cs_hierarchy2_name',	'routing_skill_name',	'routing_skill_ops_hierarchy_name',	'time_to_closure',	'to_skill_name',	'total_contacts_hmd',	'transferred_contacts',	'understandability_12345count',	'understandability_45count']
+        df = df[selected_columns]
+
+        # Table name (assuming the CSV file name without extension as the table name)
+        table_name = f"{table_name_base}_{os.path.splitext(csv_file)[0]}"
+
+        # Upload DataFrame to SQL Server using fast_executemany
+        df.to_sql(table_name, engine, if_exists='replace', index=False)
+
+# Dispose of the engine
+engine.dispose()
+
+print("Uploaded all Files Successfully, It's Done!")
