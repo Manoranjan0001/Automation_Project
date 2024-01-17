@@ -1,0 +1,55 @@
+Sub RefreshAndSaveAllFiles()
+    Dim sourceFolder As String
+    Dim destinationFolder As String
+    Dim fileName As String
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim pt As PivotTable
+    Dim destinationPath As String
+
+    ' Set the source and destination folder paths
+    sourceFolder = "C:\Users\manor\Downloads\New folder\"
+    destinationFolder = "C:\Users\manor\Downloads\New folder (2)\"
+
+    ' Check if the source folder exists
+    If Dir(sourceFolder, vbDirectory) = "" Then
+        MsgBox "Source folder does not exist!", vbExclamation
+        Exit Sub
+    End If
+
+    ' Loop through all Excel files in the source folder
+    fileName = Dir(sourceFolder & "*.xlsb")
+    Do While fileName <> ""
+        ' Open the workbook
+        Set wb = Workbooks.Open(sourceFolder & fileName)
+
+        ' Loop through all worksheets in the workbook
+        For Each ws In wb.Worksheets
+            ' Loop through all pivot tables in the worksheet
+            For Each pt In ws.PivotTables
+                ' Refresh each pivot table
+                pt.RefreshTable
+            Next pt
+        Next ws
+
+        ' Construct the destination path
+        destinationPath = destinationFolder & fileName
+
+        ' Delete existing file if it exists
+        If Dir(destinationPath) <> "" Then
+            Kill destinationPath
+        End If
+
+        ' Save the workbook to the destination folder
+        wb.SaveAs destinationPath
+
+        ' Close the workbook without saving changes to the source folder
+        wb.Close SaveChanges:=False
+
+        ' Get the next Excel file in the source folder
+        fileName = Dir
+    Loop
+
+    MsgBox "Operation completed successfully!", vbInformation
+End Sub
+
