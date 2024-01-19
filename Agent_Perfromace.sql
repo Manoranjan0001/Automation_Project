@@ -224,6 +224,7 @@ END AS [Logout Adhered],
 --FROM 
 --    #Agent_Support1;
 
+DROP TABLE IF EXISTS #Agent_Support3
 SELECT *,CASE WHEN [Status] = 'Inactive' THEN 0 
 				WHEN [Staff Time (Shift Wise)]  IS NULL OR [Staff Time (Shift Wise)] = '00:00:00' THEN 0
 				ELSE 1
@@ -237,7 +238,9 @@ SELECT *,CASE WHEN [Status] = 'Inactive' THEN 0
 	CONVERT(TIME,DATEADD(SECOND,DATEDIFF(SECOND,'00:00:00',ISNULL([Net Login (Shift Wise)],'00:00:00'))+
 			DATEDIFF(SECOND,'00:00:00',ISNULL([Downtime (Shift Wise)],'00:00:00')),'00:00:00')) [Net Login+DT (Shift Wise)]
 	,CONVERT(TIME,DATEADD(SECOND,DATEDIFF(SECOND,'00:00:00',ISNULL([Break Time],'00:00:00'))+DATEDIFF(SECOND,'00:00:00',ISNULL([Break2 Time],'00:00:00'))+
-	DATEDIFF(SECOND,'00:00:00',ISNULL([Break3 Time],'00:00:00'))+ DATEDIFF(SECOND,'00:00:00',ISNULL([Lunch Time],'00:00:00')),'00:00:00')) AS [Non.Prod_Aux]
+	DATEDIFF(SECOND,'00:00:00',ISNULL([Break3 Time],'00:00:00'))+
+	DATEDIFF(SECOND,'00:00:00', ISNULL([Personal Time],'00:00:00'))+
+	DATEDIFF(SECOND,'00:00:00',ISNULL([Lunch Time],'00:00:00')),'00:00:00')) AS [Non.Prod_Aux]
 	
 	,CASE WHEN Channel = 'Phone'
 	THEN CONVERT(TIME,DATEADD(SECOND,DATEDIFF(SECOND,'00:00:00',ISNULL([Talk Time],'00:00:00'))+DATEDIFF(SECOND,'00:00:00',ISNULL([Hold Time],'00:00:00'))+
@@ -250,5 +253,68 @@ SELECT *,CASE WHEN [Status] = 'Inactive' THEN 0
 			END [Status_in_Floor]
 			INTO #Agent_Support3
 FROM  #Agent_Support2
+	
+	DROP TABLE IF EXISTS #Agent_Support4
 
+	SELECT 
+	CASE WHEN [Status] = 'Inactive' THEN 0 
+	WHEN [Login Adhered]= 1 AND [Logout Adhered] = 1 THEN 1
+	ELSE 0 END [Schedule Adhered],
+		
+		CASE 
+			WHEN [Staff Time + DT (Shift Wise)]  >= '08:00:00' THEN 1
+				WHEN [Staff Time + DT (Shift Wise)] >= '04:00:00' THEN 0.5
+					ELSE 0	
+					END [Mandays],
 
+			CASE WHEN [Schedule Count] = 1 AND Status_in_Floor = 'Production'
+					AND [Net Login (Shift Wise)] >= '08:00:00' THEN 1
+					ELSE 0 END [Login HR Met/Not_Met]
+		,
+			CASE WHEN [Status] = 'Inactive' THEN 0 
+					WHEN [Schedule Count] = 1 AND [Present Count] = 0 THEN 1
+					ELSE 0
+					END [Absent Count]
+	,*
+	INTO #Agent_Support4
+	FROM #Agent_Support3
+
+		DROP TABLE IF EXISTS #Final_IN_Agent_Performance
+	SELECT
+		CASE WHEN [Status] = 'Inactive' THEN 0 
+			WHEN Mandays = 0.5 THEN 1
+			ELSE 0 
+			END [HD Count]
+	, 
+	CONVERT(TIME,DATEADD(MINUTE, DATEDIFF(MINUTE, '00:00', [Staff Time (Shift Wise)]) * [Mandays], '00:00')) AS [Prod. StaffTime]
+	,CONVERT(TIME,DATEADD(MINUTE, DATEDIFF(MINUTE, '00:00', [Net Login (Shift Wise)] )* [Mandays], '00:00')) AS [Prod. NetLogin]
+	,CONVERT(TIME,DATEADD(MINUTE, DATEDIFF(MINUTE, '00:00', [Aux Time (Shift Wise)] )* [Mandays], '00:00')) AS [Prod. AuxTime]
+	
+	
+	,CONVERT(TIME,DATEADD(MINUTE,DATEDIFF(MINUTE,'00:00',[Available Idle Time]) * Mandays,'00:00')) AS [Prod. IdleTime]
+	,CONVERT(TIME,DATEADD(MINUTE,DATEDIFF(MINUTE,'00:00',[Available Busy Time]) * Mandays,'00:00')) AS [Prod. BusyTime]
+	,CONVERT(TIME,DATEADD(MINUTE,DATEDIFF(MINUTE,'00:00',[Downtime (Shift Wise)]) * Mandays,'00:00')) AS [Prod. Downtime]
+
+	
+	,*
+
+		 INTO  #Final_IN_Agent_Performance
+
+		FROM #Agent_Support4
+		
+		DROP TABLE IF EXISTS [Dashboard]..Final_IN_Agent_Performance
+
+		SELECT [Site],[DATE],[CSC ID],[EMP ID],[Employee Name],[Supervisor I],[Supervisor II],[Quality Name],LOB,[Working LOB],Designation,
+				[Graduation Date],AON,Bucket,[Batch ID],[Status],[Exit Date],[Shift],AC3_Non_AC3 AS [AC3 & Non_AC3],[Month],[Week],Channel,Shift_LoginTime,
+				Shift_LogoutTime,[Shift Start Time],[Shift End Time],CSC_LoginTime,CSC_LogoutTime,[Login Adhered],[Logout Adhered],[Schedule Adhered],Headcount,
+				[Schedule Count],[Present Count],[Absent Count],[WO Count],[Leave Count],[HD Count],[Staff Time (Shift Wise)],[Net Login (Shift Wise)],
+				[Aux Time (Shift Wise)],[Downtime (Shift Wise)],[Staff Time + DT (Shift Wise)],[Net Login+DT (Shift Wise)],Mandays,[Contacts Handled],
+				[Contacts Handled Incoming],[MessageUs Contact Incoming],[Phone Contact Incoming],[ Contacts Handled Outbound],[Contacts Resolved],
+				[Missed Contacts],[MessageUs Concurrent Handle Time],[Available Idle Time],[Available Busy Time],[After Contact Work Time],[Break Time],[Break2 Time],[Break3 Time],
+				[Concurrent Handle Time],[Hold Time],[Lunch Time],[Meeting Time],[Outage Time],[Outbound Handle Time],[Personal Time],[Talk Time],
+				[Training Time],[Ring Time],[Handle Time],[Prod. StaffTime],[Prod. NetLogin],[Prod. AuxTime],[Non.Prod_Aux],[Prod. IdleTime],[Prod. BusyTime],
+				[Prod. Downtime],[IB TTT],Status_in_Floor,[Login HR Met/Not_Met]
+
+			INTO [Dashboard]..Final_IN_Agent_Performance
+		FROM 	 #Final_IN_Agent_Performance
+		ORDER BY DATE , SITE
